@@ -902,10 +902,10 @@ name = "component-servo"
 version = "0.3.0"
 dependencies = [
  "act-sdk",
+ "base64",
  "euclid",
  "image",
  "log",
- "percent-encoding",
  "schemars 1.2.2",
  "serde",
  "servo",

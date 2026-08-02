@@ -37,7 +37,8 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use act_sdk::prelude::*;
-use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine as _;
 use servo::RenderingContext as _;
 
 #[act_component]
@@ -383,9 +384,13 @@ fn block_on<F: std::future::Future>(future: F) -> F::Output {
 /// Turn the caller's `html` / `url` pair into something Servo can load.
 fn target_url(html: Option<String>, url: Option<String>) -> Result<String, ActError> {
     match (html, url) {
+        // base64 rather than percent-encoding: it is the conventional spelling
+        // for a `data:` URL carrying a document, and markup percent-encodes
+        // badly — almost every character is reserved, so the URL comes out
+        // around three times the size of the page instead of a third larger.
         (Some(html), _) => Ok(format!(
-            "data:text/html;charset=utf-8,{}",
-            utf8_percent_encode(&html, NON_ALPHANUMERIC)
+            "data:text/html;charset=utf-8;base64,{}",
+            BASE64.encode(html.as_bytes())
         )),
         (None, Some(url)) => Ok(url),
         (None, None) => Err(ActError::invalid_args("provide either `html` or `url`")),

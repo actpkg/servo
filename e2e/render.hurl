@@ -14,3 +14,7 @@ HTTP 200
 jsonpath "$.content" count == 2
 jsonpath "$.content[0].mime_type" == "image/png"
 jsonpath "$.content[1].mime_type" == "text/html"
+# The text the script wrote, not the markup that was sent: a page that failed to
+# load at all would still come back as two parts with these same mime types, so
+# without this the test would pass on the engine's own error document.
+jsonpath "$.content[1].data" contains "rendered by script"
