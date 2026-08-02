@@ -899,7 +899,7 @@ dependencies = [
 
 [[package]]
 name = "component-servo"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "act-sdk",
  "base64",

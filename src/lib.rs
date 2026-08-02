@@ -37,8 +37,8 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use act_sdk::prelude::*;
-use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD as BASE64;
 use servo::RenderingContext as _;
 
 #[act_component]

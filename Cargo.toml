@@ -1,8 +1,12 @@
 [package]
 name = "component-servo"
 description = "Servo browser engine as an ACT component — render a page, read its DOM, interact with it"
-version = "0.3.0"
-edition = "2021"
+# This is the component's own version, not the engine's. Every component in the
+# workspace versions its tool surface rather than what it wraps -- sqlite is
+# 0.4.2 against SQLite 3, postgres 0.1.2 against PostgreSQL 17. The engine
+# version it was built against is recorded in the README.
+version = "0.3.1"
+edition = "2024"
 license = "MPL-2.0"
 keywords = ["act", "servo", "browser", "screenshot", "wasm"]
 repository = "https://github.com/actpkg/servo"

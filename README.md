@@ -28,6 +28,11 @@ hit them:
 - The engine is a **fork**: ~2.3k lines against upstream Servo, plus small
   patches to five dependencies. All of it is public and linked below.
 
+Built against **Servo 0.4.0**, forked at
+[`aa297ce5`](https://github.com/servo/servo/commit/aa297ce51cdc6ae07d3027aa15f78805ea8ad17c)
+(24 July 2026). This component's version is its own and does not track the
+engine's: it versions the tools below, so that a change to them is visible in it.
+
 What it is good at: rendering *one* page faithfully, locally, in a sandbox, and
 letting you poke at it.
 

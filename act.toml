@@ -1,6 +1,6 @@
 [std]
 name = "servo"
-version = "0.3.0"
+version = "0.3.1"
 description = "Servo browser engine as an ACT component: open a page, interact with it, screenshot it, read its DOM"
 
 [std.capabilities."wasi:sockets"]
