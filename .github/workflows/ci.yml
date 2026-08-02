@@ -27,8 +27,10 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    # Cold, with nothing cached, this is a browser engine compiled by one runner.
-    timeout-minutes: 180
+    # Measured cold, nothing cached: 16m31s to fetch and compile, 20m for the job.
+    # The headroom is for a slower runner; the ceiling matters because a wedged
+    # page would otherwise hold a runner until GitHub's own six-hour limit.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
 
@@ -53,6 +55,10 @@ jobs:
       - uses: moonrepo/setup-rust@v1
         with:
           bins: just, hurl
+          # Only one action may own ~/.cargo. This one's post step cleans it by
+          # shelling out to cargo, which fails once the cache action below has
+          # been through the same directory.
+          cache: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -64,6 +70,10 @@ jobs:
         with:
           key: wasip2
           cache-targets: "false"
+          # ~/.cargo/bin holds rustup's shims and the tools installed above, none
+          # of which this build produces. Caching it means pruning it, and the
+          # shim it prunes is `cargo` itself.
+          cache-bin: "false"
 
       - run: just build
 
