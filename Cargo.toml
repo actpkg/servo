@@ -5,15 +5,14 @@ description = "Servo browser engine as an ACT component — render a page, read 
 # workspace versions its tool surface rather than what it wraps -- sqlite is
 # 0.4.2 against SQLite 3, postgres 0.1.2 against PostgreSQL 17. The engine
 # version it was built against is recorded in the README.
-version = "0.3.1"
+version = "0.3.2"
 edition = "2024"
 license = "MPL-2.0"
 keywords = ["act", "servo", "browser", "screenshot", "wasm"]
 repository = "https://github.com/actpkg/servo"
 
 [dependencies]
-act-sdk = "0.13"
-wit-bindgen = { version = "0.58", features = ["async-spawn"] }
+act-sdk = "0.14"
 serde = { version = "1", features = ["derive"] }
 schemars = "1"
 tokio = { version = "1.51", features = ["rt", "time", "macros", "net", "io-util"] }
