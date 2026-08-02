@@ -1,0 +1,60 @@
+[package]
+name = "component-servo"
+description = "Servo browser engine as an ACT component — render a page, read its DOM, interact with it"
+version = "0.3.0"
+edition = "2021"
+license = "MPL-2.0"
+keywords = ["act", "servo", "browser", "screenshot", "wasm"]
+repository = "https://github.com/actpkg/servo"
+
+[dependencies]
+act-sdk = "0.13"
+wit-bindgen = { version = "0.58", features = ["async-spawn"] }
+serde = { version = "1", features = ["derive"] }
+schemars = "1"
+tokio = { version = "1.51", features = ["rt", "time", "macros", "net", "io-util"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+log = "0.4"
+euclid = "0.22"
+
+# The engine: Servo ported to wasm32-wasip2. It lives in its own fork so that the
+# fork stays a fork — everything in it is shaped for upstream, and nothing about
+# ACT leaks in. `js_jit` selects the prebuilt SpiderMonkey archive; it does not
+# enable machine-code generation, which wasm cannot do.
+servo = { git = "https://github.com/GamePad64/servo", branch = "wasip2-port", default-features = false, features = [
+    "js_jit",
+    "baked-in-resources",
+] }
+# Referenced explicitly so the linker keeps it: the resource reader registers
+# itself through `inventory`, and a crate nothing names is dropped.
+servo-default-resources = { git = "https://github.com/GamePad64/servo", branch = "wasip2-port" }
+
+# The port's vendored crates. `[patch]` applies from the workspace being built,
+# not from the dependency's own workspace, so the list has to be repeated here —
+# without it Cargo would resolve these from crates.io and the build would fail on
+# the threads and platform backends a wasm guest does not have. Keep in sync with
+# `servo-wasi/Cargo.toml`.
+[patch.crates-io]
+# The engine's forks. `[patch]` applies from the workspace being built, not from
+# a dependency's own workspace, so this list has to be repeated here — without it
+# Cargo resolves these from crates.io and the build fails on the threads and
+# platform backends a wasm guest does not have. Keep in sync with
+# `servo-wasi/Cargo.toml`.
+webrender = { git = "https://github.com/GamePad64/webrender", branch = "wasip2" }
+webrender_api = { git = "https://github.com/GamePad64/webrender", branch = "wasip2" }
+wr_glyph_rasterizer = { git = "https://github.com/GamePad64/webrender", branch = "wasip2" }
+# Same repo, and they have to come from it too: the crates inside webrender
+# depend on these by path, so leaving them on crates.io puts two versions of each
+# in the graph and the trait impls stop matching.
+wr_malloc_size_of = { git = "https://github.com/GamePad64/webrender", branch = "wasip2" }
+webrender_build = { git = "https://github.com/GamePad64/webrender", branch = "wasip2" }
+ipc-channel = { git = "https://github.com/GamePad64/ipc-channel", branch = "wasip2" }
+surfman = { git = "https://github.com/GamePad64/surfman", branch = "wasip2" }
+imsz = { git = "https://github.com/GamePad64/imsz", branch = "wasip2" }
+freetype-sys = { git = "https://github.com/GamePad64/freetype-sys", branch = "wasip2" }
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+opt-level = "s"

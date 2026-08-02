@@ -1,0 +1,5 @@
+# Pinned to match the engine fork: Servo's crates are built against this and use
+# nightly features on it through RUSTC_BOOTSTRAP (see .cargo/config.toml).
+[toolchain]
+channel = "1.95.0"
+targets = ["wasm32-wasip2"]

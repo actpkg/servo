@@ -1,0 +1,22 @@
+[std]
+name = "servo"
+version = "0.3.0"
+description = "Servo browser engine as an ACT component: open a page, interact with it, screenshot it, read its DOM"
+
+[std.capabilities."wasi:sockets"]
+description = "Fetches pages and subresources. The engine implements HTTP itself over TCP rather than delegating to the host, which is also what leaves room for WebSockets and WebTransport."
+
+# No port restriction: a browser engine legitimately connects wherever a page
+# points it, including WebSockets on arbitrary ports. This is the artifact's
+# ceiling; narrowing it to specific hosts or ports is the caller's grant.
+[[std.capabilities."wasi:sockets".allow]]
+host = "*"
+ports = [80, 443, 8080, 8443, 8765, 8766]
+protocols = ["tcp"]
+
+[std.capabilities."wasi:filesystem"]
+description = "Servo keeps client storage (localStorage and friends) on disk and refuses to start without a writable directory for it."
+
+[[std.capabilities."wasi:filesystem".allow]]
+path = "**"
+mode = "rw"

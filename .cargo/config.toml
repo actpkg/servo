@@ -1,0 +1,32 @@
+# Building this component means building a browser engine, and most of the
+# awkward parts are C or C++: SpiderMonkey, FreeType, aws-lc-rs, swgl. Everything
+# here exists to make those compile and link for wasm32-wasip2.
+
+[env]
+WASI_SDK_PATH = "/opt/wasi-sdk"
+CC_wasm32-wasip2 = "/opt/wasi-sdk/bin/clang"
+CXX_wasm32-wasip2 = "/opt/wasi-sdk/bin/clang++"
+AR_wasm32-wasip2 = "/opt/wasi-sdk/bin/llvm-ar"
+# `-fwasm-exceptions` and the SjLj lowering are what let C libraries using
+# setjmp/longjmp compile at all — FreeType is one. `-DNDEBUG` is how Firefox
+# ships swgl; without it swgl asserts on a depth function WebRender does pass.
+CFLAGS_wasm32-wasip2 = "--sysroot=/opt/wasi-sdk/share/wasi-sysroot -mllvm -wasm-enable-sjlj -fwasm-exceptions -mllvm -wasm-use-legacy-eh=false -DNDEBUG"
+CXXFLAGS_wasm32-wasip2 = "--sysroot=/opt/wasi-sdk/share/wasi-sysroot -mllvm -wasm-enable-sjlj -fwasm-exceptions -mllvm -wasm-use-legacy-eh=false -DNDEBUG"
+# Servo's own crates use nightly features on a stable toolchain through this.
+RUSTC_BOOTSTRAP = "crown,script,script_webgpu,script_bindings,style_tests,mozjs,mozjs_sys"
+
+[target.wasm32-wasip2]
+rustflags = [
+  # tokio's wasip2 networking is behind this cfg.
+  "--cfg", "tokio_unstable",
+  "-L", "/opt/wasi-sdk/share/wasi-sysroot/lib/wasm32-wasip2",
+  # The prebuilt SpiderMonkey references the C++ exception ABI
+  # (env::__cxa_allocate_exception), so the `eh` libc++ variant is required —
+  # together with libunwind, without which the _Unwind_* symbols stay undefined.
+  "-L", "/opt/wasi-sdk/share/wasi-sysroot/lib/wasm32-wasip2/eh",
+  "-C", "link-arg=-lc++",
+  "-C", "link-arg=-lc++abi",
+  "-C", "link-arg=-lunwind",
+  # FreeType is compiled with the wasm SjLj lowering; its runtime lives here.
+  "-C", "link-arg=-lsetjmp",
+]
