@@ -1,0 +1,94 @@
+name: CI
+
+# This component is a browser engine, and the build is priced accordingly:
+# cargo fetches Servo's full git history (~1.7 GB) before compiling anything,
+# and then compiles SpiderMonkey, FreeType, aws-lc-rs and swgl along the way.
+# Everything unusual below — freeing disk, installing a C toolchain, the long
+# timeout — exists because of that.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A cold build is measured in tens of minutes; never run two for the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  WASI_SDK_VERSION: "33.0"
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    # Cold, with nothing cached, this is a browser engine compiled by one runner.
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+
+      # Servo's target directory does not fit next to the runner's preinstalled
+      # toolchains. None of these are used here.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /usr/local/share/boost /usr/local/.ghcup
+          df -h /
+
+      # The engine compiles C and C++ for wasm32-wasip2; .cargo/config.toml
+      # expects the toolchain at this exact path.
+      - name: Install wasi-sdk
+        run: |
+          curl -fsSL --retry 3 -o /tmp/wasi-sdk.tar.gz \
+            "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION%%.*}/wasi-sdk-${WASI_SDK_VERSION}-x86_64-linux.tar.gz"
+          sudo mkdir -p /opt/wasi-sdk
+          sudo tar -xzf /tmp/wasi-sdk.tar.gz -C /opt/wasi-sdk --strip-components=1
+          /opt/wasi-sdk/bin/clang --version
+
+      - uses: moonrepo/setup-rust@v1
+        with:
+          bins: just, hurl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Caches ~/.cargo only — the registry and the git checkouts, which is where
+      # that 1.7 GB fetch lands. Deliberately not target/: it measures 7.8 GB
+      # here, so caching it would blow the 10 GB per-repository cache limit on
+      # its own and evict everything else. The compile is paid every run.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: wasip2
+          cache-targets: "false"
+
+      - run: just build
+
+      - run: just pack
+
+      - run: just test
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: servo.wasm
+          path: target/wasm32-wasip2/release/component_servo.wasm
+          # It is a 113 MB artifact; keeping every push for 90 days is waste.
+          retention-days: 14
+          compression-level: 0
+
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: moonrepo/setup-rust@v1
+        with:
+          components: rustfmt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # `cargo fmt` reads only the workspace manifest, so this stays cheap — it
+      # never fetches the engine.
+      - run: cargo fmt --check

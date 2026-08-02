@@ -37,6 +37,7 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use act_sdk::prelude::*;
+use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
 use servo::RenderingContext as _;
 
 #[act_component]
@@ -384,7 +385,7 @@ fn target_url(html: Option<String>, url: Option<String>) -> Result<String, ActEr
     match (html, url) {
         (Some(html), _) => Ok(format!(
             "data:text/html;charset=utf-8,{}",
-            percent_encode(&html)
+            utf8_percent_encode(&html, NON_ALPHANUMERIC)
         )),
         (None, Some(url)) => Ok(url),
         (None, None) => Err(ActError::invalid_args("provide either `html` or `url`")),
@@ -426,22 +427,12 @@ impl Browser {
         self.webview.show();
     }
 
-    async fn navigate(&self, url: &str) -> Result<(), String> {
-        self.activate();
-        let parsed = servo::ServoUrl::parse(url).map_err(|error| format!("bad url: {error}"))?;
-        self.webview.load(parsed.into_url());
-        self.wait_for_load().await;
-        Ok(())
-    }
-
     /// Turn the event loop until the page reports it has finished loading.
     async fn wait_for_load(&self) {
         let deadline = Instant::now() + LOAD_TIMEOUT;
-        let mut turns = 0u64;
         loop {
             self.engine.servo.spin_event_loop();
             tokio::time::sleep(POLL_INTERVAL).await;
-            turns += 1;
             if self.webview.load_status() == servo::LoadStatus::Complete {
                 return;
             }
@@ -520,10 +511,7 @@ impl Browser {
             .notify_input_event(servo::InputEvent::MouseMove(servo::MouseMoveEvent::new(
                 point,
             )));
-        for action in [
-            servo::MouseButtonAction::Down,
-            servo::MouseButtonAction::Up,
-        ] {
+        for action in [servo::MouseButtonAction::Down, servo::MouseButtonAction::Up] {
             self.webview
                 .notify_input_event(servo::InputEvent::MouseButton(
                     servo::MouseButtonEvent::new(action, servo::MouseButton::Left, point),
@@ -572,34 +560,20 @@ fn render_js_value(value: &servo::JSValue) -> String {
         servo::JSValue::Boolean(value) => value.to_string(),
         servo::JSValue::Number(value) => value.to_string(),
         servo::JSValue::String(value) => value.clone(),
-        servo::JSValue::Element(id) |
-        servo::JSValue::ShadowRoot(id) |
-        servo::JSValue::Frame(id) |
-        servo::JSValue::Window(id) => id.clone(),
+        servo::JSValue::Element(id)
+        | servo::JSValue::ShadowRoot(id)
+        | servo::JSValue::Frame(id)
+        | servo::JSValue::Window(id) => id.clone(),
         servo::JSValue::Array(values) => {
             let rendered: Vec<_> = values.iter().map(render_js_value).collect();
             format!("[{}]", rendered.join(", "))
-        },
+        }
         servo::JSValue::Object(fields) => {
             let rendered: Vec<_> = fields
                 .iter()
                 .map(|(key, value)| format!("{key}: {}", render_js_value(value)))
                 .collect();
             format!("{{{}}}", rendered.join(", "))
-        },
-    }
-}
-
-/// Percent-encode just enough for a `data:` URL.
-fn percent_encode(input: &str) -> String {
-    let mut out = String::with_capacity(input.len() * 2);
-    for byte in input.as_bytes() {
-        match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                out.push(*byte as char)
-            },
-            _ => out.push_str(&format!("%{byte:02X}")),
         }
     }
-    out
 }

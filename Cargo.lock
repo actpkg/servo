@@ -905,6 +905,7 @@ dependencies = [
  "euclid",
  "image",
  "log",
+ "percent-encoding",
  "schemars 1.2.2",
  "serde",
  "servo",
