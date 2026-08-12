@@ -4,12 +4,6 @@ component_ref := env("OCI_REF", "actpkg.dev/library/servo")
 
 act := env("ACT", "npx @actcore/act")
 actbuild := env("ACT_BUILD", "npx @actcore/act-build")
-hurl := env("HURL", "hurl")
-# Random port for the e2e server, in a safe range: above the well-known/common
-# dev ports and below the Linux outbound ephemeral range (32768+).
-port := `shuf -i 10000-19999 -n 1`
-addr := "[::1]:" + port
-baseurl := "http://" + addr
 
 # Check the one thing this component cannot build without. The engine itself is a
 # git dependency, so cargo fetches it.
@@ -38,17 +32,7 @@ pack:
     {{actbuild}} pack {{wasm}}
 
 test: build
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # The engine keeps client storage under /tmp/servo and will not start
-    # without it. The path is the engine's, not ours, so the grant names it.
-    mkdir -p /tmp/servo
-    {{act}} run {{wasm}} --http --listen "{{addr}}" \
-      --grant '{"wasi:filesystem":{"mode":"allowlist","allow":[{"path":"/tmp/servo/**","mode":"rw"}]}}' &
-    PID=$!
-    trap 'kill $PID 2>/dev/null || true' EXIT
-    curl --retry 120 --retry-connrefused --retry-delay 1 -fsS -o /dev/null {{baseurl}}/info
-    {{hurl}} --test --variable "baseurl={{baseurl}}" e2e/*.hurl
+    ACT="{{act}}" uv run --project e2e pytest e2e/ -v
 
 publish: build
     #!/usr/bin/env bash

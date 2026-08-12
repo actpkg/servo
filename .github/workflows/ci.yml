@@ -54,13 +54,15 @@ jobs:
 
       - uses: moonrepo/setup-rust@v1
         with:
-          bins: just, hurl
+          bins: just
           # Only one action may own ~/.cargo. This one's post step cleans it by
           # shelling out to cargo, which fails once the cache action below has
           # been through the same directory.
           cache: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: astral-sh/setup-uv@v6
 
       # Caches ~/.cargo only — the registry and the git checkouts, which is where
       # that 1.7 GB fetch lands. Deliberately not target/: it measures 7.8 GB

@@ -1,0 +1,21 @@
+# Environment for the end-to-end suite. Declared here rather than as a pile of
+# `--with` flags on the just recipe, so the dependency set is reviewable, and
+# so adding one is an edit rather than a longer command line.
+#
+# `package = false` keeps this a virtual project: uv builds an environment from
+# the dependencies without trying to install this directory as a distribution.
+[project]
+name = "servo-e2e"
+version = "0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastmcp",
+    "pytest",
+    "pytest-asyncio",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
