@@ -1,0 +1,16 @@
+[package]
+name = "e2e-servo"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Detach from any outer workspace this component may sit in.
+[workspace]
+
+[dev-dependencies]
+rmcp = { version = "3.5", features = ["client", "transport-child-process"] }
+# `net` rides along on the scaffold's list even though nothing here stubs a
+# network endpoint: every servo test renders inline HTML, and the python
+# conftest granted no wasi:sockets for exactly that reason.
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "io-util", "sync", "time", "net"] }
+serde_json = "1"

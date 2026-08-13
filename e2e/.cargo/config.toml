@@ -1,0 +1,10 @@
+# This crate is host-only test code: it spawns `act` over tokio's process,
+# which does not exist on wasm. The component root's .cargo/config.toml wires
+# wasi-sdk compilers and rustflags for the wasm32-wasip2 build (`just build`),
+# so pin the host triple here — a nearer config file wins — and a bare
+# `cargo test` in e2e/ does the right thing.
+[build]
+target = "x86_64-unknown-linux-gnu"
+# One shared build-dir machine-wide (~/.cargo/config.toml redirects it) collides
+# same-name crates; pin this crate to its own target/ (relative = crate dir).
+build-dir = "target"

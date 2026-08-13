@@ -4,3 +4,6 @@ __pycache__/
 .pytest_cache/
 .pytest-act-stderr.log
 .venv/
+
+# rust e2e harness build dir (host target, own build-dir)
+e2e/target/

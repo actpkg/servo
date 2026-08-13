@@ -5,7 +5,7 @@ description = "Servo browser engine as an ACT component — render a page, read 
 # workspace versions its tool surface rather than what it wraps -- sqlite is
 # 0.4.2 against SQLite 3, postgres 0.1.2 against PostgreSQL 17. The engine
 # version it was built against is recorded in the README.
-version = "0.3.2"
+version = "0.3.3"
 edition = "2024"
 license = "MPL-2.0"
 keywords = ["act", "servo", "browser", "screenshot", "wasm"]
@@ -15,23 +15,23 @@ repository = "https://github.com/actpkg/servo"
 act-sdk = "0.14"
 serde = { version = "1", features = ["derive"] }
 schemars = "1"
-tokio = { version = "1.51", features = ["rt", "time", "macros", "net", "io-util"] }
+tokio = { version = "1.53", features = ["rt", "time", "macros", "net", "io-util"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
 log = "0.4"
 euclid = "0.22"
-base64 = "0.22"
+base64 = "0.23"
 
 # The engine: Servo ported to wasm32-wasip2. It lives in its own fork so that the
 # fork stays a fork — everything in it is shaped for upstream, and nothing about
 # ACT leaks in. `js_jit` selects the prebuilt SpiderMonkey archive; it does not
 # enable machine-code generation, which wasm cannot do.
-servo = { git = "https://github.com/GamePad64/servo", branch = "wasip2-port", default-features = false, features = [
+servo = { git = "https://github.com/GamePad64/servo", branch = "wasip2-port-v0.5.0", default-features = false, features = [
     "js_jit",
     "baked-in-resources",
 ] }
 # Referenced explicitly so the linker keeps it: the resource reader registers
 # itself through `inventory`, and a crate nothing names is dropped.
-servo-default-resources = { git = "https://github.com/GamePad64/servo", branch = "wasip2-port" }
+servo-default-resources = { git = "https://github.com/GamePad64/servo", branch = "wasip2-port-v0.5.0" }
 
 # The port's vendored crates. `[patch]` applies from the workspace being built,
 # not from the dependency's own workspace, so the list has to be repeated here —

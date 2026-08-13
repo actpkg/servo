@@ -22,15 +22,27 @@ hit them:
   tool and a second session is refused. **This is not a crawler.**
 - **Slow and heavy.** 7–24 s for a cold render, **~3 GB peak RSS** per instance,
   113 MB artifact. Rendering is single-threaded and on the CPU.
+- **A page with many resources can outrun its own load timeout.** `render`
+  gives a page 30 s to finish loading, polling Servo's event loop between
+  checks — but the poll only sees the clock between calls, not during one.
+  A single call can itself take arbitrarily long if there is a large backlog
+  of queued work (a page with 100+ subresources is enough), and nothing on
+  this single-threaded runtime can preempt it mid-call. Measured directly:
+  a page with ~126 resources sometimes returns cleanly at the 30 s mark with
+  a blank result, and sometimes runs for 30+ minutes straight before this
+  component gives up waiting on it. Fixing this for real needs Servo's own
+  script/constellation threads to yield more eagerly under a large backlog —
+  out of reach from this component, which only calls into the engine, not
+  into its internals.
 - **Only the fonts it carries** — DejaVu Sans, Serif and Sans Mono. No CJK, no
   Arabic, no Devanagari, and no colour emoji.
 - **No WebGL, no GPU.** A heavy page is slow rather than impossible.
 - The engine is a **fork**: ~2.3k lines against upstream Servo, plus small
   patches to five dependencies. All of it is public and linked below.
 
-Built against **Servo 0.4.0**, forked at
-[`aa297ce5`](https://github.com/servo/servo/commit/aa297ce51cdc6ae07d3027aa15f78805ea8ad17c)
-(24 July 2026). This component's version is its own and does not track the
+Built against **Servo 0.5.0**, forked at
+[`v0.5.0`](https://github.com/servo/servo/releases/tag/v0.5.0)
+(15 August 2026). This component's version is its own and does not track the
 engine's: it versions the tools below, so that a change to them is visible in it.
 
 What it is good at: rendering *one* page faithfully, locally, in a sandbox, and

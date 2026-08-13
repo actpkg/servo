@@ -32,7 +32,7 @@ pack:
     {{actbuild}} pack {{wasm}}
 
 test: build
-    ACT="{{act}}" uv run --project e2e pytest e2e/ -v
+    cd e2e && ACT="{{act}}" WASM="../{{wasm}}" cargo test
 
 publish: build
     #!/usr/bin/env bash
