@@ -22,9 +22,13 @@ WASM = "target/wasm32-wasip2/release/component_servo.wasm"
 # RUST_LOG — so it is redirected to a file rather than left to flood pytest.
 LOG_FILE = Path(".pytest-act-stderr.log")
 
-# Healthy connects are measured in fractions of a second; this only has
-# to be loose enough never to trip on a slow runner.
-CONNECT_TIMEOUT = 30
+# Deliberately loose. `act run --mcp` instantiates the component before it
+# answers `initialize`, so "connect" includes that cost -- for a heavy
+# component (servo embeds a browser engine) it is seconds, and on a loaded
+# runner it varies. 30s tripped servo in CI while its healthy connect was
+# ~8s, so the bound sits well above the worst observed cost and still well
+# below the per-test timeout, keeping this the diagnostic that fires first.
+CONNECT_TIMEOUT = 120
 
 # The engine keeps client storage (localStorage and friends) under /tmp/servo
 # and refuses to start without a writable directory there — the path is the
