@@ -12,6 +12,7 @@ dependencies = [
     "fastmcp",
     "pytest",
     "pytest-asyncio",
+    "pytest-timeout",
 ]
 
 [tool.uv]
@@ -19,3 +20,8 @@ package = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# Bounded, not tight: a hung test must fail the job rather than run
+# until GitHub's six-hour ceiling. Generous enough never to trip a
+# legitimately slow suite.
+timeout = 300
+timeout_method = "thread"

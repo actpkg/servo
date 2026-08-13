@@ -4,11 +4,13 @@ The suite drives the packed component through `act run --mcp` over stdio with
 a real MCP client, so what the tests observe is what an agent observes.
 """
 
+import asyncio
 import json
 import os
 import shlex
 import subprocess
 import pytest
+from contextlib import AsyncExitStack
 from pathlib import Path
 
 from fastmcp import Client
@@ -19,6 +21,10 @@ WASM = "target/wasm32-wasip2/release/component_servo.wasm"
 # ACT's audit trail writes to stderr unconditionally — it is not governed by
 # RUST_LOG — so it is redirected to a file rather than left to flood pytest.
 LOG_FILE = Path(".pytest-act-stderr.log")
+
+# Healthy connects are measured in fractions of a second; this only has
+# to be loose enough never to trip on a slow runner.
+CONNECT_TIMEOUT = 30
 
 # The engine keeps client storage (localStorage and friends) under /tmp/servo
 # and refuses to start without a writable directory there — the path is the
@@ -98,5 +104,33 @@ async def client(act_command: list[str], wasm_path: Path):
         keep_alive=False,
         log_file=LOG_FILE,
     )
-    async with Client(transport) as connected:
+    async with AsyncExitStack() as stack:
+        # Bound the connect, not the test body. A stalled handshake otherwise
+        # consumes the whole pytest timeout with no diagnostic at all — which
+        # is precisely how the webdriver-bidi CI hang presented for hours.
+        try:
+            async with asyncio.timeout(CONNECT_TIMEOUT):
+                connected = await stack.enter_async_context(Client(transport))
+        except TimeoutError:
+            pytest.fail(
+                f"MCP client did not connect within {CONNECT_TIMEOUT}s; "
+                f"act's stderr, if it wrote any, is dumped at session end"
+            )
         yield connected
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Print act's stderr when the run did not pass.
+
+    `log_file` keeps the audit trail out of the test output, which is right
+    for a green run and wrong for every other kind: on an ephemeral CI runner
+    nothing ever reads that file. Diagnosing a CI-only hang in this fleet
+    cost several rounds of probing that one line of this stream would have
+    answered. A hook rather than a fixture finaliser on purpose — fixture
+    teardown does not run when the session dies mid-test.
+    """
+    if exitstatus == 0 or not LOG_FILE.exists():
+        return
+    text = LOG_FILE.read_text(errors="replace").strip()
+    if text:
+        print(f"\n--- act stderr ({LOG_FILE}) ---\n{text}")
