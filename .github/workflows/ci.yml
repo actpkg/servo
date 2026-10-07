@@ -21,7 +21,10 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  WASI_SDK_VERSION: "33.0"
+  # Matches the wasi-sdk the component is verified against locally
+  # (34.0, clang 23.1.0); the tested artifact and the published one then
+  # come out of the same toolchain.
+  WASI_SDK_VERSION: "34.0"
 
 jobs:
   build:
@@ -62,8 +65,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: astral-sh/setup-uv@v6
-
       # Caches ~/.cargo only — the registry and the git checkouts, which is where
       # that 1.7 GB fetch lands. Deliberately not target/: it measures 7.8 GB
       # here, so caching it would blow the 10 GB per-repository cache limit on
@@ -85,9 +86,9 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: servo.wasm
+          name: component.wasm
           path: target/wasm32-wasip2/release/component_servo.wasm
-          # It is a 113 MB artifact; keeping every push for 90 days is waste.
+          # It is a ~120 MB artifact; keeping every push for 90 days is waste.
           retention-days: 14
           compression-level: 0
 
@@ -104,3 +105,59 @@ jobs:
       # `cargo fmt` reads only the workspace manifest, so this stays cheap — it
       # never fetches the engine.
       - run: cargo fmt --check
+
+  publish:
+    name: Publish
+    # Only the canonical branch publishes; PRs get build + e2e only.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [build, fmt]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read      # checkout
+      id-token: write     # keyless cosign signing via GitHub OIDC
+    steps:
+      - uses: actions/checkout@v7
+
+      # The packed artifact the build job just tested — deliberately not a
+      # rebuild. `just publish` would drag the engine build (20 minutes and a
+      # wasi-sdk install) back in for an artifact the runner already has; the
+      # version probe and the push below mirror that recipe instead. The tag
+      # comes from the manifest the build packed, and --skip-if-exists makes
+      # the whole job idempotent by semver tag.
+      - uses: actions/download-artifact@v8
+        with:
+          name: component.wasm
+          path: target/wasm32-wasip2/release/
+
+      - uses: sigstore/cosign-installer@v4.1.2   # cosign 3.x → OCI 1.1 referrer signatures
+
+      - name: Publish
+        id: publish
+        env:
+          # actpkg.dev PAT (any username; the registry detects the PAT by
+          # prefix). Inherited from the actpkg org as ACTPKG_TOKEN.
+          OCI_USERNAME: __token__
+          OCI_PASSWORD: ${{ secrets.ACTPKG_TOKEN }}
+          # Source repo URL for org.opencontainers.image.source (read by act-build).
+          ACT_SOURCE: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          WASM=target/wasm32-wasip2/release/component_servo.wasm
+          INFO=$(npx @actcore/act inspect component-manifest "$WASM")
+          VERSION=$(echo "$INFO" | jq -r .std.version)
+          OUTPUT=$(npx @actcore/act-build push "$WASM" "actpkg.dev/library/servo:$VERSION" \
+            --skip-if-exists --also-tag latest 2>&1) || { echo "$OUTPUT" >&2; exit 1; }
+          echo "$OUTPUT"
+          DIGEST=$(echo "$OUTPUT" | grep "^Digest:" | awk '{print $2}' || true)
+          if [ -n "${GITHUB_OUTPUT:-}" ]; then
+            echo "image=actpkg.dev/library/servo" >> "$GITHUB_OUTPUT"
+            echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Sign (keyless via GitHub OIDC)
+        if: steps.publish.outputs.digest != ''
+        env:
+          ACTPKG_TOKEN: ${{ secrets.ACTPKG_TOKEN }}
+          SUBJECT: ${{ steps.publish.outputs.image }}@${{ steps.publish.outputs.digest }}
+        run: |
+          echo "$ACTPKG_TOKEN" | cosign login actpkg.dev -u __token__ --password-stdin
+          cosign sign --yes "$SUBJECT"
