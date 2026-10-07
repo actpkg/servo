@@ -32,7 +32,16 @@ pack:
     {{actbuild}} pack {{wasm}}
 
 test: build
-    cd e2e && ACT="{{act}}" WASM="../{{wasm}}" cargo test
+    # Serial on purpose. Each test drives its own `act run`, and this component
+    # is the fleet's heavyweight: ~3 GB peak RSS per instance, against a
+    # 120 MB module whose Cranelift compile cache is cold on a fresh CI
+    # runner. In parallel, cargo's default, the overlapping compiles and
+    # instantiations killed two of three children on the runner (silent
+    # deaths — inspect and the handshake both lost their child mid-flight)
+    # while passing everywhere with a warm cache. One at a time is what the
+    # old python suite did, and it also removes any concurrent-`npx` install
+    # race on a cold npm cache.
+    cd e2e && ACT="{{act}}" WASM="../{{wasm}}" cargo test -- --test-threads=1
 
 publish: build
     #!/usr/bin/env bash
