@@ -20,7 +20,7 @@ use std::time::Duration;
 use rmcp::{
     ServiceExt,
     model::CallToolRequestParams,
-    transport::{ConfigureCommandExt, TokioChildProcess},
+    transport::TokioChildProcess,
 };
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, BufReader};
